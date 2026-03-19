@@ -52,8 +52,8 @@ def search_organizations_by_activity_name(
 def search_organizations_in_radius(
     _: None = Depends(require_api_key),
     service: SearchService = Depends(get_search_service),
-    lat: float = Query(..., description="Широта точки (latitude)"),
-    lon: float = Query(..., description="Долгота точки (longitude)"),
+    lat: float = Query(..., ge=-90, le=90, description="Широта точки (latitude)"),
+    lon: float = Query(..., ge=-180, le=180, description="Долгота точки (longitude)"),
     radius_m: float = Query(..., gt=0, description="Радиус в метрах"),
     limit: int = Query(100, ge=1, le=500, description="Максимальное количество записей в ответе"),
     offset: int = Query(0, ge=0, description="Смещение для постраничной выборки"),
@@ -70,10 +70,10 @@ def search_organizations_in_radius(
 def search_organizations_in_box(
     _: None = Depends(require_api_key),
     service: SearchService = Depends(get_search_service),
-    lat_min: float = Query(..., description="Минимальная широта (lat_min)"),
-    lat_max: float = Query(..., description="Максимальная широта (lat_max)"),
-    lon_min: float = Query(..., description="Минимальная долгота (lon_min)"),
-    lon_max: float = Query(..., description="Максимальная долгота (lon_max)"),
+    lat_min: float = Query(..., ge=-90, le=90, description="Минимальная широта (lat_min)"),
+    lat_max: float = Query(..., ge=-90, le=90, description="Максимальная широта (lat_max)"),
+    lon_min: float = Query(..., ge=-180, le=180, description="Минимальная долгота (lon_min)"),
+    lon_max: float = Query(..., ge=-180, le=180, description="Максимальная долгота (lon_max)"),
     limit: int = Query(100, ge=1, le=500, description="Максимальное количество записей в ответе"),
     offset: int = Query(0, ge=0, description="Смещение для постраничной выборки"),
 ) -> list[OrganizationRead]:

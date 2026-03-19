@@ -116,6 +116,44 @@ def test_search_geo_radius_bad_request(client):
     assert response.status_code in (400, 422)
 
 
+def test_search_geo_radius_invalid_coords(client):
+    response = client.get(
+        "/api/v1/search/organizations/geo/radius",
+        params={"lat": 100.0, "lon": 37.62, "radius_m": 1000},
+        headers=API_KEY_HEADERS,
+    )
+    assert response.status_code == 422
+
+
+def test_search_geo_box_invalid_coords(client):
+    response = client.get(
+        "/api/v1/search/organizations/geo/box",
+        params={
+            "lat_min": -91.0,
+            "lat_max": 56.0,
+            "lon_min": 37.0,
+            "lon_max": 38.0,
+        },
+        headers=API_KEY_HEADERS,
+    )
+    assert response.status_code == 422
+
+
+def test_search_geo_box_invalid_order(client):
+    response = client.get(
+        "/api/v1/search/organizations/geo/box",
+        params={
+            "lat_min": 56.0,
+            "lat_max": 55.0,
+            "lon_min": 37.0,
+            "lon_max": 38.0,
+        },
+        headers=API_KEY_HEADERS,
+    )
+    assert response.status_code == 400
+    assert "detail" in response.json()
+
+
 @pytest.mark.skipif(not REQUIRES_PG, reason="Seeded data tests require PostgreSQL")
 def test_search_geo_box(client, seed_data):
     response = client.get(

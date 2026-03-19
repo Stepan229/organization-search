@@ -20,12 +20,13 @@ class ActivityRepository:
     def get_descendant_ids(self, activity_id: uuid.UUID, max_level: int = 3) -> list[uuid.UUID]:
         # Рекурсивный CTE для обхода дерева
         cte = (
-            select(Activity.id)
+            select(Activity.id, Activity.level)
             .where(Activity.id == activity_id)
             .cte(name="tree", recursive=True)
         )
-        child = select(Activity.id).where(
+        child = select(Activity.id, Activity.level).where(
             Activity.parent_id == cte.c.id,
+            Activity.level == cte.c.level + 1,
             Activity.level <= max_level,
         )
         cte = cte.union_all(child)

@@ -5,6 +5,7 @@ Run after: alembic upgrade head
 import logging
 import uuid
 
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
@@ -15,6 +16,41 @@ logger = logging.getLogger(__name__)
 
 
 def seed(session: Session) -> None:
+    # Make seeding idempotent: only reset data with fixed UUIDs used in this script.
+    building_ids = [
+        uuid.UUID("10000000-0000-0000-0000-000000000001"),
+        uuid.UUID("10000000-0000-0000-0000-000000000002"),
+        uuid.UUID("10000000-0000-0000-0000-000000000003"),
+    ]
+    activity_ids = [
+        uuid.UUID("20000000-0000-0000-0000-000000000001"),
+        uuid.UUID("20000000-0000-0000-0000-000000000002"),
+        uuid.UUID("20000000-0000-0000-0000-000000000011"),
+        uuid.UUID("20000000-0000-0000-0000-000000000012"),
+        uuid.UUID("20000000-0000-0000-0000-000000000021"),
+        uuid.UUID("20000000-0000-0000-0000-000000000022"),
+        uuid.UUID("20000000-0000-0000-0000-000000000031"),
+        uuid.UUID("20000000-0000-0000-0000-000000000032"),
+    ]
+    organization_ids = [
+        uuid.UUID("30000000-0000-0000-0000-000000000001"),
+        uuid.UUID("30000000-0000-0000-0000-000000000002"),
+        uuid.UUID("30000000-0000-0000-0000-000000000003"),
+        uuid.UUID("30000000-0000-0000-0000-000000000004"),
+    ]
+
+    # Delete in FK-safe order.
+    session.execute(
+        delete(OrganizationActivity).where(OrganizationActivity.organization_id.in_(organization_ids)),
+    )
+    session.execute(
+        delete(OrganizationPhone).where(OrganizationPhone.organization_id.in_(organization_ids)),
+    )
+    session.execute(delete(Organization).where(Organization.id.in_(organization_ids)))
+    session.execute(delete(Activity).where(Activity.id.in_(activity_ids)))
+    session.execute(delete(Building).where(Building.id.in_(building_ids)))
+    session.flush()
+
     # Buildings
     b1 = Building(
         id=uuid.UUID("10000000-0000-0000-0000-000000000001"),

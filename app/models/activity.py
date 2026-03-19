@@ -15,7 +15,8 @@ class Activity(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
-    name: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
+    # Name is used as a lookup key in search endpoints, so it must be unique.
+    name: Mapped[str] = mapped_column(String(256), nullable=False, unique=True, index=True)
     parent_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("activities.id", ondelete="CASCADE"),

@@ -2,10 +2,11 @@ import os
 import uuid
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from starlette.testclient import TestClient
+from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
+from dotenv import load_dotenv
 
 from app.core.config import Settings
 from app.db.base import Base
@@ -13,47 +14,41 @@ from app.db.session import get_session
 from app.main import create_app
 from app.models import Activity, Building, Organization, OrganizationActivity, OrganizationPhone
 
-TEST_DATABASE_URL = os.environ.get(
-    "TEST_DATABASE_URL",
-    "sqlite:///:memory:",
-)
+load_dotenv()
+
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
+TEST_API_KEY = os.environ.get("TEST_API_KEY", "test-api-key")
+
+if not TEST_DATABASE_URL:
+    raise RuntimeError(
+        "TEST_DATABASE_URL must be set for tests (PostgreSQL). "
+        "Set it in .env or export it before running pytest."
+    )
+if not TEST_DATABASE_URL.startswith("postgresql"):
+    raise RuntimeError(f"Only PostgreSQL is supported for tests, got: {TEST_DATABASE_URL!r}")
 
 
 @pytest.fixture(scope="session")
 def test_settings():
     return Settings(
         database_url=TEST_DATABASE_URL,
-        api_key="test-api-key",
+        api_key=TEST_API_KEY,
     )
 
 
 @pytest.fixture(scope="session")
 def engine(test_settings):
     url = test_settings.database_url
-    if url.startswith("sqlite"):
-        engine = create_engine(
-            url,
-            connect_args={"check_same_thread": False},
-            poolclass=StaticPool,
-        )
-    else:
-        engine = create_engine(url)
+    engine = create_engine(url)
     Base.metadata.create_all(engine)
     return engine
 
 
 @pytest.fixture
 def engine_fresh(test_settings):
-    """Per-test engine for SQLite so each test gets a fresh in-memory DB."""
+    """Per-test engine so each test runs in a fresh connection context."""
     url = test_settings.database_url
-    if url.startswith("sqlite"):
-        eng = create_engine(
-            "sqlite:///:memory:",
-            connect_args={"check_same_thread": False},
-            poolclass=StaticPool,
-        )
-    else:
-        eng = create_engine(url)
+    eng = create_engine(url)
     Base.metadata.create_all(eng)
     return eng
 
@@ -74,10 +69,18 @@ def db_session(engine_fresh, SessionLocalFresh):
     connection = engine_fresh.connect()
     transaction = connection.begin()
     session = Session(bind=connection, expire_on_commit=False)
-    yield session
-    session.close()
-    transaction.rollback()
-    connection.close()
+    try:
+        yield session
+    finally:
+        # The test itself may call commit/rollback; rollbacking the original
+        # `transaction` object can emit SAWarning if it is already deassociated.
+        # `session.rollback()` is safe and uses the current state.
+        try:
+            session.rollback()
+        except Exception:
+            pass
+        session.close()
+        connection.close()
 
 
 @pytest.fixture
@@ -96,6 +99,31 @@ def client(test_settings, db_session):
 @pytest.fixture
 def seed_data(db_session):
     """Insert test data (flush only so rollback clears it). Use explicit UUIDs for reproducibility."""
+    building_ids = [
+        uuid.UUID("10000000-0000-0000-0000-000000000001"),
+        uuid.UUID("10000000-0000-0000-0000-000000000002"),
+    ]
+    activity_ids = [
+        uuid.UUID("20000000-0000-0000-0000-000000000001"),
+        uuid.UUID("20000000-0000-0000-0000-000000000011"),
+        uuid.UUID("20000000-0000-0000-0000-000000000012"),
+    ]
+    organization_ids = [
+        uuid.UUID("30000000-0000-0000-0000-000000000001"),
+        uuid.UUID("30000000-0000-0000-0000-000000000002"),
+    ]
+
+    # Ensure deterministic fixture behavior regardless of previous tests.
+    db_session.execute(
+        delete(OrganizationActivity).where(OrganizationActivity.organization_id.in_(organization_ids)),
+    )
+    db_session.execute(
+        delete(OrganizationPhone).where(OrganizationPhone.organization_id.in_(organization_ids)),
+    )
+    db_session.execute(delete(Organization).where(Organization.id.in_(organization_ids)))
+    db_session.execute(delete(Activity).where(Activity.id.in_(activity_ids)))
+    db_session.execute(delete(Building).where(Building.id.in_(building_ids)))
+
     id_b1 = uuid.UUID("10000000-0000-0000-0000-000000000001")
     id_b2 = uuid.UUID("10000000-0000-0000-0000-000000000002")
     b1 = Building(
@@ -144,4 +172,4 @@ def seed_data(db_session):
     return {"building_id": id_b2, "activity_id": id_food, "org_id": id_o1}
 
 
-API_KEY_HEADERS = {"X-API-Key": "test-api-key"}
+API_KEY_HEADERS = {"X-API-Key": TEST_API_KEY}

@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "organization-search"
+version = "0.1.0"
+description = "REST API for organizations, buildings and activity tree"
+authors = ["Task Generator <noreply@example.com>"]
+readme = "README.md"
+packages = [{ include = "app" }]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4"
+fastapi = ">=0.109.0"
+uvicorn = { version = ">=0.27.0", extras = ["standard"] }
+pydantic = ">=2.5.0"
+pydantic-settings = ">=2.1.0"
+sqlalchemy = ">=2.0.0"
+alembic = ">=1.13.0"
+psycopg2-binary = ">=2.9.9"
+python-dotenv = ">=0.21.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+httpx = "*"
+ruff = "*"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+
+[tool.ruff.format]
+quote-style = "preserve"
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
